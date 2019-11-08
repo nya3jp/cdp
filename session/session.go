@@ -123,6 +123,10 @@ func dial(ctx context.Context, id target.ID, tc *cdp.Client, detachTimeout time.
 		if err == context.DeadlineExceeded {
 			return fmt.Errorf("session: detach timed out for session %s", s.ID)
 		}
+		// Ignore "No session with given id" error which might be returned if the target is already closed.
+		if rerr, ok := err.(*rpcc.ResponseError); ok && rerr.Code == -32602 {
+			return nil
+		}
 		return errors.Wrapf(err, "session: detach failed for session %s", s.ID)
 	}
 

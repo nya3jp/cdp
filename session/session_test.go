@@ -13,6 +13,7 @@ import (
 	"github.com/mafredri/cdp/internal/testutil"
 	"github.com/mafredri/cdp/protocol/page"
 	"github.com/mafredri/cdp/protocol/runtime"
+	"github.com/mafredri/cdp/protocol/target"
 	"github.com/mafredri/cdp/session"
 )
 
@@ -192,6 +193,40 @@ func TestManager_NewOnClosedConn(t *testing.T) {
 	if err == nil {
 		t.Error("NewManager: rpcc.Conn is closed, expected error, got nil ")
 	}
+}
+
+func TestManager_CloseTarget(t *testing.T) {
+	checkBrowser(t)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+	defer cancel()
+
+	c := testutil.NewClient(ctx, t)
+	defer c.Conn.Close()
+
+	m, err := session.NewManager(c.Client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer m.Close()
+
+	p := c.NewPage(ctx)
+
+	conn, err := m.Dial(ctx, p.ID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		// Even if the target is already closed, Conn.Close should not return an error.
+		if err := conn.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	if _, err := c.Client.Target.CloseTarget(ctx, target.NewCloseTargetArgs(p.ID())); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(10 * time.Millisecond) // Give time to close the target.
 }
 
 var (
